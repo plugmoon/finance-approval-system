@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>凱凱/亞太/鋼鐵人 三合一財務審核系統</title>
+    <link rel="stylesheet" href="/css/styles.css?v=20260620-employee-login">
+    <script defer src="/js/review.js?v=20260620-employee-login"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/">凱凱/亞太/鋼鐵人 三合一財務審核系統</a>
+      <nav class="topnav" aria-label="主要導覽">
+        <a href="/">員工申請</a>
+        <a href="/admin">後台管理</a>
+      </nav>
+    </header>
+
+    <main class="review-shell">
+      <section class="work-surface review-surface">
+        <div class="surface-heading">
+          <div>
+            <p class="eyebrow">Approval</p>
+            <h1>主管審核</h1>
+          </div>
+          <span class="state-pill" id="reviewState">讀取中</span>
+        </div>
+
+        <div id="reviewDetail" class="detail-grid"></div>
+
+        <div class="review-actions" id="reviewActions" hidden>
+          <button class="primary-button" type="button" id="approveButton">同意</button>
+          <button class="danger-button" type="button" id="showRejectButton">不同意</button>
+        </div>
+
+        <form id="rejectForm" class="reject-form" hidden>
+          <label>
+            <span>不同意理由</span>
+            <textarea name="reason" rows="5" maxlength="800" required></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="danger-button" type="submit">送出不同意</button>
+            <button class="ghost-button" type="button" id="cancelRejectButton">取消</button>
+          </div>
+        </form>
+
+        <p class="form-message" id="reviewMessage" role="status"></p>
+      </section>
+    </main>
+  </body>
+</html>

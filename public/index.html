@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>凱凱/亞太/鋼鐵人 三合一財務審核系統</title>
+    <link rel="stylesheet" href="/css/styles.css?v=20260620-employee-login">
+    <script defer src="/js/app.js?v=20260620-employee-login"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/">凱凱/亞太/鋼鐵人 三合一財務審核系統</a>
+      <nav class="topnav" aria-label="主要導覽">
+        <a class="active" href="/">員工申請</a>
+        <a href="/admin">後台管理</a>
+      </nav>
+    </header>
+
+    <main class="page-shell">
+      <section class="work-surface">
+        <div class="surface-heading">
+          <div>
+            <p class="eyebrow">Expense Request</p>
+            <h1>費用申請表</h1>
+          </div>
+          <span class="state-pill" id="loadState">讀取中</span>
+        </div>
+
+        <form id="expenseForm" class="request-form" novalidate>
+          <label>
+            <span>申請員工</span>
+            <select name="employee_id" id="employeeSelect" required>
+              <option value="">請選擇員工</option>
+            </select>
+          </label>
+
+          <label>
+            <span>費用類別</span>
+            <select name="category_id" id="categorySelect" required>
+              <option value="">請選擇類別</option>
+            </select>
+          </label>
+
+          <div class="employee-context wide" id="employeeContext">請先選擇申請員工，系統會帶入所屬單位與部門。</div>
+
+          <label>
+            <span>申請歸屬單位</span>
+            <select name="unit_id" id="requestUnitSelect" required>
+              <option value="">請先選擇員工</option>
+            </select>
+          </label>
+
+          <label>
+            <span>申請金額</span>
+            <input name="amount" type="number" min="1" step="1" inputmode="decimal" placeholder="0" required>
+          </label>
+
+          <label>
+            <span>發生日期</span>
+            <input name="occurred_on" id="occurredOn" type="date" required>
+          </label>
+
+          <label class="wide">
+            <span>申請項目</span>
+            <input name="expense_item" type="text" maxlength="120" placeholder="例：外送平台物料採購" required>
+          </label>
+
+          <label class="wide">
+            <span>內容描述</span>
+            <textarea name="description" rows="5" maxlength="1500" placeholder="請填寫用途、對象、必要背景" required></textarea>
+          </label>
+
+          <label class="wide">
+            <span>備註</span>
+            <textarea name="note" rows="3" maxlength="1500" placeholder="可填發票號碼、付款方式或其他補充"></textarea>
+          </label>
+
+          <label class="wide">
+            <span>發票照片</span>
+            <input name="invoice_file" id="invoiceInput" type="file" accept="image/*" capture="environment">
+          </label>
+          <div class="invoice-preview wide" id="invoicePreview">可直接拍照或從相簿選擇發票照片。</div>
+
+          <div class="form-actions wide">
+            <button class="primary-button" type="submit" id="submitButton">送出申請</button>
+            <button class="ghost-button" type="reset">清除</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="side-panel" aria-live="polite">
+        <div class="panel-heading">
+          <h2>送出結果</h2>
+        </div>
+        <div id="submitResult" class="empty-state">
+          尚未送出申請。
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>
