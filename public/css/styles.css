@@ -117,6 +117,16 @@ button {
   align-items: start;
 }
 
+body.result-mode #requestSection,
+body.request-mode #resultSection {
+  display: none !important;
+}
+
+body.result-mode #resultSection,
+body.request-mode #requestSection {
+  display: block;
+}
+
 .review-shell {
   width: min(780px, calc(100% - 32px));
 }

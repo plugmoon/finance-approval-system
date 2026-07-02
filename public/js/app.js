@@ -181,19 +181,31 @@
   }
 
   function showResultPage() {
+    document.body.classList.remove('request-mode');
+    document.body.classList.add('result-mode');
     elements.requestSection.hidden = true;
+    elements.requestSection.setAttribute('aria-hidden', 'true');
     elements.resultSection.hidden = false;
+    elements.resultSection.removeAttribute('aria-hidden');
     window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      elements.resultTitle.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+      try {
+        elements.resultTitle.focus({ preventScroll: true });
+      } catch (error) {
+        elements.resultTitle.focus();
+      }
     });
   }
 
   function showRequestPage() {
+    document.body.classList.remove('result-mode');
+    document.body.classList.add('request-mode');
     elements.resultSection.hidden = true;
+    elements.resultSection.setAttribute('aria-hidden', 'true');
     elements.requestSection.hidden = false;
+    elements.requestSection.removeAttribute('aria-hidden');
     window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo(0, 0);
     });
   }
 
