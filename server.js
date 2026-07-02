@@ -1508,9 +1508,20 @@ function buildReviewEmail(expense) {
         <td style="padding:8px;border-bottom:1px solid #d8ded8;">${String(value).startsWith('<a ') ? value : htmlEscape(value)}</td>
       </tr>`).join('')}
     </table>
-    <p style="margin:20px 0 0;">
-      <a href="${htmlEscape(approveUrl)}" style="display:inline-block;padding:12px 22px;margin-right:8px;background:#0f766e;color:#fff;text-decoration:none;border-radius:6px;">同意</a>
-      <a href="${htmlEscape(rejectUrl)}" style="display:inline-block;padding:12px 22px;background:#e5e7eb;color:#111827;text-decoration:none;border-radius:6px;">不同意</a>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:720px;margin:24px 0 10px;">
+      <tr>
+        <td style="width:50%;padding:0 8px 10px 0;">
+          <a href="${htmlEscape(approveUrl)}" target="_blank" style="display:block;box-sizing:border-box;width:100%;min-height:58px;padding:16px 18px;background:#0f766e;color:#ffffff;text-align:center;text-decoration:none;border-radius:8px;font-size:18px;font-weight:700;line-height:26px;-webkit-text-size-adjust:none;">同意</a>
+        </td>
+        <td style="width:50%;padding:0 0 10px 8px;">
+          <a href="${htmlEscape(rejectUrl)}" target="_blank" style="display:block;box-sizing:border-box;width:100%;min-height:58px;padding:16px 18px;background:#e5e7eb;color:#111827;text-align:center;text-decoration:none;border-radius:8px;font-size:18px;font-weight:700;line-height:26px;-webkit-text-size-adjust:none;">不同意</a>
+        </td>
+      </tr>
+    </table>
+    <p style="max-width:720px;margin:8px 0 0;color:#607069;font-size:14px;line-height:1.7;">
+      若手機上按鈕不易點選，請改用下方文字連結：<br>
+      同意：<a href="${htmlEscape(approveUrl)}" target="_blank">${htmlEscape(approveUrl)}</a><br>
+      不同意：<a href="${htmlEscape(rejectUrl)}" target="_blank">${htmlEscape(rejectUrl)}</a>
     </p>
   </body>
 </html>`;

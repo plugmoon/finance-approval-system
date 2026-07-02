@@ -112,7 +112,7 @@ button {
 
 .page-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   align-items: start;
 }
@@ -395,6 +395,26 @@ textarea:focus {
   color: var(--text);
 }
 
+.result-page {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.result-reminder {
+  margin: 14px 0 0;
+  color: var(--danger);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.6;
+}
+
 .employee-context {
   display: flex;
   flex-wrap: wrap;
@@ -486,6 +506,16 @@ textarea:focus {
 .review-actions,
 .reject-form {
   margin-top: 20px;
+}
+
+.review-actions .primary-button,
+.review-actions .danger-button,
+.reject-form .primary-button,
+.reject-form .danger-button,
+.reject-form .ghost-button {
+  min-height: 54px;
+  min-width: 150px;
+  touch-action: manipulation;
 }
 
 .auth-panel {
@@ -691,6 +721,10 @@ tbody tr:last-child td {
 
   .side-panel {
     order: -1;
+  }
+
+  .result-page {
+    order: 0;
   }
 
   .metric-grid {

@@ -175,8 +175,26 @@
         <span>${escapeHtml(invoiceText)}</span>
         <span>審核狀態：${escapeHtml(request.status_label)}</span>
         <span>${escapeHtml(deliveryText)}</span>
+        <p class="result-reminder">您可請將送出結果截圖，使用Line傳給主管，提醒審核</p>
       </div>
     `;
+  }
+
+  function showResultPage() {
+    elements.requestSection.hidden = true;
+    elements.resultSection.hidden = false;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      elements.resultTitle.focus({ preventScroll: true });
+    });
+  }
+
+  function showRequestPage() {
+    elements.resultSection.hidden = true;
+    elements.requestSection.hidden = false;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   }
 
   async function loadBootstrap() {
@@ -270,6 +288,7 @@
         body: JSON.stringify(await payloadFromForm(elements.expenseForm))
       });
       elements.submitResult.innerHTML = resultHtml(data.request, data.notification_delivery || data.line_delivery);
+      showResultPage();
       elements.expenseForm.reset();
       state.invoiceMode = '';
       elements.occurredOn.value = today();
@@ -278,6 +297,7 @@
       setState('已送出');
     } catch (error) {
       elements.submitResult.innerHTML = `<div class="empty-state">送出失敗：${escapeHtml(error.message)}</div>`;
+      showResultPage();
       setState('送出失敗');
     } finally {
       elements.submitButton.disabled = false;
@@ -300,13 +320,18 @@
       'invoiceUploadPanel',
       'invoicePreview',
       'submitButton',
-      'submitResult'
+      'submitResult',
+      'requestSection',
+      'resultSection',
+      'resultTitle',
+      'newRequestButton'
     ].forEach((id) => {
       elements[id] = byId(id);
     });
     elements.invoiceModeButtons = Array.from(document.querySelectorAll('[data-invoice-mode]'));
 
     elements.expenseForm.addEventListener('submit', submitExpense);
+    elements.newRequestButton.addEventListener('click', showRequestPage);
     elements.expenseForm.addEventListener('reset', () => {
       window.setTimeout(() => {
         state.invoiceMode = '';

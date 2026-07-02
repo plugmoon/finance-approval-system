@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>凱凱/亞太/鋼鐵人 三合一財務審核系統</title>
-    <link rel="stylesheet" href="/css/styles.css?v=20260620-employee-login">
-    <script defer src="/js/app.js?v=20260622-invoice-mode-picker"></script>
+    <link rel="stylesheet" href="/css/styles.css?v=20260702-result-page">
+    <script defer src="/js/app.js?v=20260702-result-page"></script>
   </head>
   <body>
     <header class="topbar">
@@ -17,7 +17,7 @@
     </header>
 
     <main class="page-shell">
-      <section class="work-surface">
+      <section class="work-surface" id="requestSection">
         <div class="surface-heading">
           <div>
             <p class="eyebrow">Expense Request</p>
@@ -103,12 +103,15 @@
         </form>
       </section>
 
-      <aside class="side-panel" aria-live="polite">
+      <aside class="side-panel result-page" id="resultSection" aria-live="polite" hidden>
         <div class="panel-heading">
-          <h2>送出結果</h2>
+          <h2 id="resultTitle" tabindex="-1">送出結果</h2>
         </div>
         <div id="submitResult" class="empty-state">
           尚未送出申請。
+        </div>
+        <div class="result-actions">
+          <button class="ghost-button" type="button" id="newRequestButton">填寫下一筆申請</button>
         </div>
       </aside>
     </main>
