@@ -2,6 +2,8 @@
 
 const http = require('node:http');
 const https = require('node:https');
+const net = require('node:net');
+const tls = require('node:tls');
 const fs = require('node:fs/promises');
 const fssync = require('node:fs');
 const path = require('node:path');
@@ -26,6 +28,12 @@ const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
 const LINE_TARGET_ID = process.env.LINE_TARGET_ID || '';
 const LINE_TARGET_IDS = parseLineTargetIds(process.env.LINE_TARGET_IDS || LINE_TARGET_ID);
 const LINE_QUOTA_WARNING_THRESHOLD = Number(process.env.LINE_QUOTA_WARNING_THRESHOLD || 20);
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = Number(process.env.SMTP_PORT || (String(process.env.SMTP_SECURE).toLowerCase() === 'true' ? 465 : 587));
+const SMTP_SECURE = ['1', 'true', 'yes'].includes(String(process.env.SMTP_SECURE || '').toLowerCase());
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
+const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 const MAX_BODY_BYTES = 1024 * 1024 * 8;
 
@@ -76,6 +84,19 @@ function parseLineTargetIds(value) {
     .split(/[\s,，]+/)
     .map((item) => item.trim())
     .filter(Boolean)));
+}
+
+function parseEmailRecipients(value) {
+  const source = Array.isArray(value) ? value.join('\n') : String(value || '');
+  return Array.from(new Set(source
+    .split(/[\s,;，；]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.toLowerCase())));
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
 }
 
 function withBasePath(resourcePath) {
@@ -333,7 +354,10 @@ function seedStore() {
         updated_at: createdAt
       }
     ],
-    requests: []
+    requests: [],
+    notification: {
+      email_recipients: []
+    }
   };
 }
 
@@ -403,7 +427,8 @@ function normalizeExistingRequest(row, store) {
     status: normalizeStatus(row.status),
     rejection_reason: cleanLongText(row.rejection_reason, 800),
     approval_token: String(row.approval_token || randomToken()),
-    line_delivery: row.line_delivery || { status: 'pending', message: '' },
+    notification_delivery: row.notification_delivery || row.line_delivery || { status: 'pending', message: '' },
+    line_delivery: row.line_delivery || null,
     created_by: cleanText(row.created_by, 60) || 'front',
     created_at: row.created_at || nowIso(),
     updated_at: row.updated_at || nowIso(),
@@ -414,6 +439,16 @@ function normalizeExistingRequest(row, store) {
   };
 }
 
+function normalizeNotificationSettings(input = {}) {
+  const emailRecipients = parseEmailRecipients(input.email_recipients || input.emailRecipients || input.recipients || '');
+  const invalid = emailRecipients.filter((email) => !isValidEmail(email));
+  if (invalid.length) throw new Error(`Email 格式不正確：${invalid.join(', ')}`);
+  return {
+    email_recipients: emailRecipients,
+    updated_at: input.updated_at || nowIso()
+  };
+}
+
 function normalizeStore(store) {
   const units = normalizeNamedRows(store.units, defaultUnits());
   const categories = normalizeNamedRows(store.categories, defaultCategories());
@@ -421,7 +456,8 @@ function normalizeStore(store) {
     units,
     categories,
     employees: [],
-    requests: []
+    requests: [],
+    notification: normalizeNotificationSettings(store.notification || {})
   };
   normalized.employees = Array.isArray(store.employees)
     ? store.employees.map((row) => normalizeExistingEmployee(row, units)).filter((row) => row.id)
@@ -505,6 +541,7 @@ function publicExpense(expense) {
 function adminExpense(expense) {
   return {
     ...publicExpense(expense),
+    notification_delivery: expense.notification_delivery,
     line_delivery: expense.line_delivery,
     created_by: expense.created_by
   };
@@ -582,7 +619,8 @@ function normalizeExpenseInput(body, store, existing = {}, options = {}) {
     status: requestedStatus,
     rejection_reason: cleanLongText(body.rejection_reason ?? existing.rejection_reason, 800),
     approval_token: existing.approval_token || randomToken(),
-    line_delivery: existing.line_delivery || { status: 'pending', message: '' },
+    notification_delivery: existing.notification_delivery || existing.line_delivery || { status: 'pending', message: '' },
+    line_delivery: existing.line_delivery || null,
     created_by: existing.created_by || options.createdBy || 'front',
     created_at: existing.created_at || now,
     updated_at: now,
@@ -758,6 +796,17 @@ function employeeProfile(employee) {
   };
 }
 
+function notificationSettingsResponse(store) {
+  return {
+    email_recipients: emailRecipientsFromStore(store),
+    smtp_configured: smtpConfigured(),
+    smtp_host: SMTP_HOST,
+    smtp_port: SMTP_PORT || '',
+    smtp_from: SMTP_FROM || '',
+    updated_at: store.notification?.updated_at || ''
+  };
+}
+
 function ensureUniqueAccount(store, account, employeeId) {
   if (!account) return;
   const duplicate = store.employees.find((employee) => (
@@ -898,6 +947,246 @@ async function postJson(urlString, payload, headers = {}) {
     req.write(body);
     req.end();
   });
+}
+
+function smtpConfigured() {
+  return Boolean(SMTP_HOST && SMTP_PORT && SMTP_FROM);
+}
+
+function sanitizeHeader(value) {
+  return String(value || '').replace(/[\r\n]+/g, ' ').trim();
+}
+
+function encodeMailHeader(value) {
+  return `=?UTF-8?B?${Buffer.from(sanitizeHeader(value), 'utf8').toString('base64')}?=`;
+}
+
+function htmlEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[char]));
+}
+
+function base64Lines(value) {
+  return Buffer.from(String(value || ''), 'utf8')
+    .toString('base64')
+    .match(/.{1,76}/g)
+    ?.join('\r\n') || '';
+}
+
+function smtpAddress(value) {
+  const text = sanitizeHeader(value);
+  const match = text.match(/<([^>]+)>/);
+  const email = (match ? match[1] : text).trim();
+  if (!isValidEmail(email)) throw new Error(`SMTP_FROM 格式不正確：${text}`);
+  return email;
+}
+
+function createSmtpReader(socket) {
+  let buffer = '';
+  let waiting = null;
+
+  function extractResponse() {
+    if (!buffer.includes('\n')) return null;
+    if (!buffer.endsWith('\n')) return null;
+    const lines = buffer.split('\n');
+    let firstCode = '';
+    const responseLines = [];
+    let consumed = 0;
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (index === lines.length - 1 && line === '') break;
+      const match = line.match(/^(\d{3})([ -])/);
+      if (!firstCode) {
+        if (!match) continue;
+        firstCode = match[1];
+      }
+      responseLines.push(line);
+      consumed = index + 1;
+      if (line.startsWith(`${firstCode} `)) {
+        buffer = lines.slice(consumed).join('\n');
+        return {
+          code: Number(firstCode),
+          text: responseLines.join('\n')
+        };
+      }
+    }
+    return null;
+  }
+
+  function flush() {
+    if (!waiting) return;
+    const response = extractResponse();
+    if (!response) return;
+    clearTimeout(waiting.timer);
+    const current = waiting;
+    waiting = null;
+    current.resolve(response);
+  }
+
+  function onData(chunk) {
+    buffer += String(chunk).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    flush();
+  }
+
+  function onError(error) {
+    if (!waiting) return;
+    clearTimeout(waiting.timer);
+    const current = waiting;
+    waiting = null;
+    current.reject(error);
+  }
+
+  function onClose() {
+    if (!waiting) return;
+    clearTimeout(waiting.timer);
+    const current = waiting;
+    waiting = null;
+    current.reject(new Error('SMTP connection closed.'));
+  }
+
+  socket.setEncoding('utf8');
+  socket.on('data', onData);
+  socket.on('error', onError);
+  socket.on('close', onClose);
+
+  return {
+    read(timeoutMs = 30000) {
+      if (waiting) return Promise.reject(new Error('SMTP reader is already waiting.'));
+      return new Promise((resolve, reject) => {
+        waiting = {
+          resolve,
+          reject,
+          timer: setTimeout(() => {
+            const current = waiting;
+            waiting = null;
+            current.reject(new Error('SMTP response timeout.'));
+          }, timeoutMs)
+        };
+        flush();
+      });
+    },
+    detach() {
+      socket.off('data', onData);
+      socket.off('error', onError);
+      socket.off('close', onClose);
+    }
+  };
+}
+
+function connectSmtpSocket() {
+  const options = {
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    servername: SMTP_HOST
+  };
+  return new Promise((resolve, reject) => {
+    const socket = SMTP_SECURE ? tls.connect(options, () => resolve(socket)) : net.connect(options, () => resolve(socket));
+    socket.setTimeout(30000, () => {
+      socket.destroy(new Error('SMTP connection timeout.'));
+    });
+    socket.once('error', reject);
+  });
+}
+
+function upgradeSmtpTls(socket) {
+  return new Promise((resolve, reject) => {
+    const secureSocket = tls.connect({ socket, servername: SMTP_HOST }, () => resolve(secureSocket));
+    secureSocket.once('error', reject);
+  });
+}
+
+async function sendSmtpCommand(socket, reader, command, expectedCodes) {
+  socket.write(`${command}\r\n`);
+  const response = await reader.read();
+  const expected = Array.isArray(expectedCodes) ? expectedCodes : [expectedCodes];
+  if (!expected.includes(response.code)) {
+    throw new Error(`SMTP command failed (${command}): ${response.text}`);
+  }
+  return response;
+}
+
+function buildMailMessage({ from, to, subject, text, html }) {
+  const boundary = `finance-${crypto.randomBytes(12).toString('hex')}`;
+  const fromHeader = sanitizeHeader(from);
+  const toHeader = to.map(sanitizeHeader).join(', ');
+  const headers = [
+    `From: ${fromHeader}`,
+    `To: ${toHeader}`,
+    `Subject: ${encodeMailHeader(subject)}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${crypto.randomBytes(16).toString('hex')}@finance-approval-system>`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`
+  ];
+  return [
+    headers.join('\r\n'),
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    base64Lines(text),
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    base64Lines(html || text),
+    `--${boundary}--`,
+    ''
+  ].join('\r\n');
+}
+
+async function sendSmtpMail({ to, subject, text, html }) {
+  const recipients = parseEmailRecipients(to).filter(isValidEmail);
+  if (!smtpConfigured()) throw new Error('尚未設定 SMTP_HOST、SMTP_PORT、SMTP_FROM');
+  if (!recipients.length) throw new Error('尚未設定通知 Email 收件人');
+
+  const fromAddress = smtpAddress(SMTP_FROM);
+  const message = buildMailMessage({
+    from: SMTP_FROM,
+    to: recipients,
+    subject,
+    text,
+    html
+  }).replace(/^\./gm, '..');
+
+  let socket = await connectSmtpSocket();
+  let reader = createSmtpReader(socket);
+  try {
+    await reader.read();
+    const ehloName = fromAddress.includes('@') ? fromAddress.split('@').pop() : 'localhost';
+    await sendSmtpCommand(socket, reader, `EHLO ${ehloName}`, 250);
+    if (!SMTP_SECURE) {
+      await sendSmtpCommand(socket, reader, 'STARTTLS', 220);
+      reader.detach();
+      socket = await upgradeSmtpTls(socket);
+      reader = createSmtpReader(socket);
+      await sendSmtpCommand(socket, reader, `EHLO ${ehloName}`, 250);
+    }
+    if (SMTP_USER && SMTP_PASSWORD) {
+      await sendSmtpCommand(socket, reader, 'AUTH LOGIN', 334);
+      await sendSmtpCommand(socket, reader, Buffer.from(SMTP_USER, 'utf8').toString('base64'), 334);
+      await sendSmtpCommand(socket, reader, Buffer.from(SMTP_PASSWORD, 'utf8').toString('base64'), 235);
+    }
+    await sendSmtpCommand(socket, reader, `MAIL FROM:<${fromAddress}>`, 250);
+    for (const recipient of recipients) {
+      await sendSmtpCommand(socket, reader, `RCPT TO:<${recipient}>`, [250, 251]);
+    }
+    await sendSmtpCommand(socket, reader, 'DATA', 354);
+    socket.write(`${message}\r\n.\r\n`);
+    const dataResponse = await reader.read();
+    if (dataResponse.code !== 250) throw new Error(`SMTP DATA failed: ${dataResponse.text}`);
+    await sendSmtpCommand(socket, reader, 'QUIT', 221).catch(() => {});
+  } finally {
+    reader.detach();
+    socket.end();
+  }
+  return recipients;
 }
 
 async function lineApiGet(pathname) {
@@ -1141,6 +1430,98 @@ async function pushLineMessages(messages) {
   return { status: 'failed', message: failed.map((item) => item.message).join('; ') || 'LINE push failed.', results, quota_status };
 }
 
+function emailRecipientsFromStore(store) {
+  return normalizeNotificationSettings(store.notification || {}).email_recipients;
+}
+
+async function sendNotificationEmail(store, subject, text, html) {
+  const recipients = emailRecipientsFromStore(store);
+  if (!recipients.length) {
+    return { status: 'skipped', message: '尚未設定通知 Email 收件人', results: [] };
+  }
+  if (!smtpConfigured()) {
+    return { status: 'skipped', message: '尚未設定 SMTP_HOST、SMTP_PORT、SMTP_FROM', results: [] };
+  }
+  try {
+    const sentRecipients = await sendSmtpMail({ to: recipients, subject, text, html });
+    return {
+      status: 'sent',
+      message: `Email sent to ${sentRecipients.length} recipient(s).`,
+      results: sentRecipients.map((email) => ({ email, status: 'sent' }))
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      message: error.message,
+      results: recipients.map((email) => ({ email, status: 'failed', message: error.message }))
+    };
+  }
+}
+
+function absoluteAppUrl(resourcePath) {
+  return new URL(resourcePath, APP_BASE_URL).toString();
+}
+
+function buildReviewEmail(expense) {
+  const approveUrl = buildReviewUrl(expense, 'approve');
+  const rejectUrl = buildReviewUrl(expense, 'reject');
+  const invoiceLink = expense.invoice ? absoluteAppUrl(invoiceUrl(expense)) : '';
+  const subject = `費用申請待審核：${expense.employee_name} ${formatMoney(expense.amount)}`;
+  const lines = [
+    '費用申請待審核',
+    `申請單：${expense.request_no}`,
+    `申請人：${expense.employee_name}`,
+    `單位：${expense.unit_name}`,
+    `部門：${expense.department || '未設定部門'}`,
+    `項目：${expense.expense_item}`,
+    `類別：${expense.category_name}`,
+    `金額：${formatMoney(expense.amount)}`,
+    `日期：${expense.occurred_on}`,
+    `內容：${expense.description}`,
+    `備註：${expense.note || '無'}`,
+    `發票：${invoiceLink || '未上傳'}`,
+    '',
+    `同意：${approveUrl}`,
+    `不同意：${rejectUrl}`
+  ];
+  const rows = [
+    ['申請單', expense.request_no],
+    ['申請人', expense.employee_name],
+    ['單位', expense.unit_name],
+    ['部門', expense.department || '未設定部門'],
+    ['項目', expense.expense_item],
+    ['類別', expense.category_name],
+    ['金額', formatMoney(expense.amount)],
+    ['日期', expense.occurred_on],
+    ['內容', expense.description],
+    ['備註', expense.note || '無'],
+    ['發票', invoiceLink ? `<a href="${htmlEscape(invoiceLink)}">查看發票</a>` : '未上傳']
+  ];
+  const html = `<!doctype html>
+<html lang="zh-Hant">
+  <body style="font-family:Arial,'Microsoft JhengHei',sans-serif;color:#172026;line-height:1.6;">
+    <h2 style="margin:0 0 16px;">費用申請待審核</h2>
+    <table style="border-collapse:collapse;width:100%;max-width:720px;">
+      ${rows.map(([label, value]) => `
+      <tr>
+        <th style="width:120px;text-align:left;padding:8px;border-bottom:1px solid #d8ded8;background:#f0f4f1;">${htmlEscape(label)}</th>
+        <td style="padding:8px;border-bottom:1px solid #d8ded8;">${String(value).startsWith('<a ') ? value : htmlEscape(value)}</td>
+      </tr>`).join('')}
+    </table>
+    <p style="margin:20px 0 0;">
+      <a href="${htmlEscape(approveUrl)}" style="display:inline-block;padding:12px 22px;margin-right:8px;background:#0f766e;color:#fff;text-decoration:none;border-radius:6px;">同意</a>
+      <a href="${htmlEscape(rejectUrl)}" style="display:inline-block;padding:12px 22px;background:#e5e7eb;color:#111827;text-decoration:none;border-radius:6px;">不同意</a>
+    </p>
+  </body>
+</html>`;
+  return { subject, text: lines.join('\n'), html };
+}
+
+async function sendEmailReviewMessage(expense, store) {
+  const email = buildReviewEmail(expense);
+  return sendNotificationEmail(store, email.subject, email.text, email.html);
+}
+
 async function sendLineReviewMessage(expense) {
   const contents = [
     { type: 'text', text: '費用申請待審核', weight: 'bold', size: 'lg', color: '#172026' },
@@ -1299,18 +1680,18 @@ async function handlePublicApi(req, res, url) {
     store.requests.push(expense);
     await writeStore(store);
 
-    const delivery = await sendLineReviewMessage(expense);
+    const delivery = await sendEmailReviewMessage(expense, store);
     const latestStore = await readStore();
     const latestExpense = latestStore.requests.find((item) => item.id === expense.id);
     if (latestExpense) {
-      latestExpense.line_delivery = delivery;
+      latestExpense.notification_delivery = delivery;
       latestExpense.updated_at = nowIso();
       await writeStore(latestStore);
     }
 
     writeJson(res, 201, {
       request: publicExpense(latestExpense || expense),
-      line_delivery: delivery
+      notification_delivery: delivery
     });
     return true;
   }
@@ -1332,13 +1713,12 @@ async function handlePublicApi(req, res, url) {
     if (!expense || expense.approval_token !== body.token) return notFound(res), true;
     if (expense.status === 'pending') {
       expense.status = 'approved';
-      expense.reviewed_by = 'LINE 審核';
+      expense.reviewed_by = '線上審核';
       expense.approved_at = nowIso();
       expense.rejected_at = null;
       expense.rejection_reason = '';
       expense.updated_at = nowIso();
       await writeStore(store);
-      await sendLineDecisionMessage(expense);
     }
     writeJson(res, 200, { request: publicExpense(expense) });
     return true;
@@ -1354,13 +1734,12 @@ async function handlePublicApi(req, res, url) {
     if (!expense || expense.approval_token !== body.token) return notFound(res), true;
     if (expense.status === 'pending') {
       expense.status = 'rejected';
-      expense.reviewed_by = 'LINE 審核';
+      expense.reviewed_by = '線上審核';
       expense.rejection_reason = reason;
       expense.rejected_at = nowIso();
       expense.approved_at = null;
       expense.updated_at = nowIso();
       await writeStore(store);
-      await sendLineDecisionMessage(expense);
     }
     writeJson(res, 200, { request: publicExpense(expense) });
     return true;
@@ -1456,6 +1835,26 @@ async function handleAdminApi(req, res, url) {
     session.username = store.employees[index].account;
     session.name = store.employees[index].name;
     writeJson(res, 200, employeeProfile(store.employees[index]));
+    return true;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/admin/notification-settings') {
+    if (!isAdminSession(session)) return forbid(res), true;
+    const store = await readStore();
+    writeJson(res, 200, notificationSettingsResponse(store));
+    return true;
+  }
+
+  if (req.method === 'PUT' && pathname === '/api/admin/notification-settings') {
+    if (!isAdminSession(session)) return forbid(res), true;
+    const body = await parseJsonBody(req);
+    const store = await readStore();
+    store.notification = normalizeNotificationSettings({
+      email_recipients: body.email_recipients,
+      updated_at: nowIso()
+    });
+    await writeStore(store);
+    writeJson(res, 200, notificationSettingsResponse(store));
     return true;
   }
 
@@ -1722,8 +2121,8 @@ ensureDataStore()
       if (!process.env.ADMIN_PASSWORD) {
         console.warn('Default admin password is admin12345. Set ADMIN_PASSWORD before production deployment.');
       }
-      if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_TARGET_ID) {
-        console.warn('LINE settings are missing. Expense requests will be saved, but LINE push messages will be skipped.');
+      if (!smtpConfigured()) {
+        console.warn('SMTP settings are missing. Expense requests will be saved, but email notifications will be skipped.');
       }
     });
   })

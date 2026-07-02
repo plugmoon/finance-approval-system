@@ -155,12 +155,12 @@
     `;
   }
 
-  function resultHtml(request, delivery) {
+  function resultHtml(request, delivery = {}) {
     const deliveryText = delivery.status === 'sent'
-      ? 'LINE 群組通知已送出'
+      ? 'Email 通知已送出'
       : delivery.status === 'skipped'
-        ? '申請已儲存，尚未啟用 LINE 通知'
-        : `申請已儲存，LINE 通知失敗：${delivery.message}`;
+        ? '申請已儲存，尚未啟用 Email 通知'
+        : `申請已儲存，Email 通知失敗：${delivery.message || '未知錯誤'}`;
     const invoiceText = request.invoice ? `發票：${request.invoice.original_name || '已上傳'}` : '發票：未上傳';
 
     return `
@@ -269,7 +269,7 @@
         method: 'POST',
         body: JSON.stringify(await payloadFromForm(elements.expenseForm))
       });
-      elements.submitResult.innerHTML = resultHtml(data.request, data.line_delivery);
+      elements.submitResult.innerHTML = resultHtml(data.request, data.notification_delivery || data.line_delivery);
       elements.expenseForm.reset();
       state.invoiceMode = '';
       elements.occurredOn.value = today();

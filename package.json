@@ -1,7 +1,7 @@
 {
   "name": "finance-approval-system",
   "version": "1.0.0",
-  "description": "Web-based employee expense application, LINE approval, and admin finance review system.",
+  "description": "Web-based employee expense application, email approval notifications, and admin finance review system.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

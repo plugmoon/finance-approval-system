@@ -88,7 +88,7 @@
   async function loadReview() {
     if (!requestId || !token) {
       setState('連結無效');
-      setMessage('缺少審核資訊，請回到 LINE 群組重新點選審核連結。', 'error');
+      setMessage('缺少審核資訊，請回到 Email 通知重新點選審核連結。', 'error');
       return;
     }
 

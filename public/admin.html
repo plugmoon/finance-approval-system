@@ -317,6 +317,31 @@
               </table>
             </div>
           </section>
+
+          <section class="work-surface">
+            <div class="panel-heading">
+              <h2>Email 通知設定</h2>
+            </div>
+            <form id="notificationForm" class="admin-form" novalidate>
+              <label class="wide">
+                <span>通知收件 Email</span>
+                <textarea name="email_recipients" rows="7" maxlength="2000" placeholder="boss@example.com&#10;accounting@example.com"></textarea>
+              </label>
+              <p class="wide helper-text">可輸入多個 Email，每行一個或用逗號分隔。SMTP 主機、帳號與寄件人請在伺服器 .env 設定。</p>
+              <label>
+                <span>SMTP 狀態</span>
+                <input name="smtp_status" type="text" disabled>
+              </label>
+              <label>
+                <span>寄件人</span>
+                <input name="smtp_from" type="text" disabled>
+              </label>
+              <div class="form-actions wide">
+                <button class="primary-button" type="submit">儲存 Email 通知設定</button>
+                <p class="form-message" id="notificationMessage" role="status"></p>
+              </div>
+            </form>
+          </section>
         </section>
       </section>
     </main>

@@ -438,6 +438,12 @@ textarea:focus {
   font-weight: 700;
 }
 
+.helper-text {
+  margin: -4px 0 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .form-message.error {
   color: var(--danger);
 }

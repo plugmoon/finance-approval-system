@@ -6,7 +6,8 @@
     employees: [],
     requests: [],
     summary: null,
-    profile: null
+    profile: null,
+    notificationSettings: null
   };
   const elements = {};
 
@@ -427,9 +428,29 @@
     }
   }
 
+  function renderNotificationSettings() {
+    const settings = state.notificationSettings || {};
+    if (!elements.notificationForm) return;
+    field(elements.notificationForm, 'email_recipients').value = (settings.email_recipients || []).join('\n');
+    field(elements.notificationForm, 'smtp_status').value = settings.smtp_configured ? '已設定' : '尚未設定';
+    field(elements.notificationForm, 'smtp_from').value = settings.smtp_from || '';
+  }
+
+  async function loadNotificationSettings() {
+    if (!isAdmin()) return;
+    try {
+      state.notificationSettings = await api('/api/admin/notification-settings');
+      renderNotificationSettings();
+      setMessage(elements.notificationMessage, '', '');
+    } catch (error) {
+      state.notificationSettings = null;
+      setMessage(elements.notificationMessage, error.message, 'error');
+    }
+  }
+
   async function loadAll() {
     await Promise.all([loadUnits(), loadCategories()]);
-    await Promise.all([loadSummary(), loadEmployees(), loadRequests(), loadProfile()]);
+    await Promise.all([loadSummary(), loadEmployees(), loadRequests(), loadProfile(), loadNotificationSettings()]);
     applyRoleUi();
   }
 
@@ -689,6 +710,27 @@
     }
   }
 
+  async function saveNotificationSettings(event) {
+    event.preventDefault();
+    if (!elements.notificationForm.checkValidity()) {
+      elements.notificationForm.reportValidity();
+      return;
+    }
+    setMessage(elements.notificationMessage, '儲存中...', '');
+    try {
+      state.notificationSettings = await api('/api/admin/notification-settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          email_recipients: field(elements.notificationForm, 'email_recipients').value
+        })
+      });
+      renderNotificationSettings();
+      setMessage(elements.notificationMessage, '已儲存 Email 通知設定', 'success');
+    } catch (error) {
+      setMessage(elements.notificationMessage, error.message, 'error');
+    }
+  }
+
   async function deleteRequest(id) {
     if (!window.confirm('確定要刪除此筆財務資料？')) return;
     await api(`/api/admin/requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -725,6 +767,7 @@
     elements.profileForm.addEventListener('submit', saveProfile);
     elements.categoryForm.addEventListener('submit', saveCategory);
     elements.unitForm.addEventListener('submit', saveUnit);
+    elements.notificationForm.addEventListener('submit', saveNotificationSettings);
     elements.resetRequestButton.addEventListener('click', resetRequestForm);
     elements.resetEmployeeButton.addEventListener('click', resetEmployeeForm);
     elements.resetCategoryButton.addEventListener('click', resetCategoryForm);
@@ -820,7 +863,9 @@
       'unitFormTitle',
       'unitMessage',
       'resetUnitButton',
-      'unitRows'
+      'unitRows',
+      'notificationForm',
+      'notificationMessage'
     ].forEach((id) => {
       elements[id] = byId(id);
     });
