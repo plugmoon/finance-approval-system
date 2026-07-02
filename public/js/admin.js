@@ -36,8 +36,13 @@
     return new Date().toISOString().slice(0, 10);
   }
 
+  function appPath(path) {
+    const base = window.APP_BASE_PATH || '';
+    return String(path).startsWith('/') ? `${base}${path}` : path;
+  }
+
   async function api(path, options = {}) {
-    const response = await fetch(path, {
+    const response = await fetch(appPath(path), {
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',

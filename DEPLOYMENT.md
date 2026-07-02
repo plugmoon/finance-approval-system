@@ -26,6 +26,15 @@ git remote add origin https://github.com/<你的帳號>/<你的repo>.git
 git push -u origin main
 ```
 
+若本機沒有安裝 Git，也可以用 GitHub 網頁上傳：
+
+1. 到 GitHub 建立新 repository，例如 `finance-approval-system`
+2. 解壓縮專案旁邊的 `finance-approval-system-render-ready.zip`
+3. 進入 GitHub repo 頁面
+4. 點 `Add file` > `Upload files`
+5. 將解壓後的所有檔案與 `public/` 資料夾拖進 GitHub
+6. Commit 到 `main`
+
 不要提交以下檔案：
 
 - `.env`
@@ -64,6 +73,14 @@ LINE_TARGET_ID=C69edfafe3338ef979e27a2e87abf6dfd
 ```
 
 `SESSION_SECRET` 會由 Render 自動產生，不需要手動填。
+
+`APP_BASE_URL` 必須是 Render 服務的實際網址。若建立服務前還不知道網址，可以先填：
+
+```text
+https://finance-approval-system.onrender.com
+```
+
+服務建立後，到 Render 服務頁面複製實際網址，再回到 Environment 更新 `APP_BASE_URL`，接著手動重新部署一次。
 
 ## LINE 設定
 

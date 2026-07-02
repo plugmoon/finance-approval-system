@@ -1,0 +1,2 @@
+Default admin password is admin12345. Set ADMIN_PASSWORD before production deployment.
+LINE settings are missing. Expense requests will be saved, but LINE push messages will be skipped.

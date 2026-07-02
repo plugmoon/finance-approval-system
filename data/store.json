@@ -1,0 +1,315 @@
+{
+  "units": [
+    {
+      "id": 1,
+      "name": "凱凱美麗產業有限公司",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 2,
+      "name": "亞太職業創新協會",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 3,
+      "name": "鋼鐵人美食家集團",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "交通費",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 2,
+      "name": "餐費",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 3,
+      "name": "採購",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 4,
+      "name": "住宿費",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 5,
+      "name": "交際費",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 6,
+      "name": "教育訓練",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    },
+    {
+      "id": 7,
+      "name": "其他",
+      "created_at": "2026-06-20T10:40:04.375Z",
+      "updated_at": "2026-06-20T10:40:04.375Z"
+    }
+  ],
+  "employees": [
+    {
+      "id": 1,
+      "employee_no": "001",
+      "name": "艾瑞克01",
+      "unit_ids": [
+        1,
+        2,
+        3
+      ],
+      "unit_names": [
+        "凱凱美麗產業有限公司",
+        "亞太職業創新協會",
+        "鋼鐵人美食家集團"
+      ],
+      "unit_id": 1,
+      "unit_name": "凱凱美麗產業有限公司",
+      "department": "管理部",
+      "role": "admin",
+      "status": "active",
+      "account": "plugmoon",
+      "password_hash": "98495c8dd9224671dd7e5ca02880cf54:b7da1d73ff39c75fc786d89c7dc58acf8f7cdcb5210098d516d68788b8457157",
+      "created_at": "2026-06-20T10:17:17.176Z",
+      "updated_at": "2026-06-20T10:59:53.325Z"
+    },
+    {
+      "id": 4,
+      "employee_no": "002",
+      "name": "Eric",
+      "unit_ids": [
+        1,
+        2,
+        3
+      ],
+      "unit_names": [
+        "凱凱美麗產業有限公司",
+        "亞太職業創新協會",
+        "鋼鐵人美食家集團"
+      ],
+      "unit_id": 1,
+      "unit_name": "凱凱美麗產業有限公司",
+      "department": "總部",
+      "role": "employee",
+      "status": "active",
+      "account": "eric",
+      "password_hash": "b11e1a15f351190514da188ea91d00c5:3b646e4cbe5e70a0a6b7d85fa879598d7731f8c999c4c304ce3209712b3fff07",
+      "created_at": "2026-06-20T11:00:22.606Z",
+      "updated_at": "2026-06-20T16:26:50.961Z"
+    },
+    {
+      "id": 5,
+      "employee_no": "003",
+      "name": "賴依珊",
+      "unit_ids": [
+        1,
+        3
+      ],
+      "unit_names": [
+        "凱凱美麗產業有限公司",
+        "鋼鐵人美食家集團"
+      ],
+      "unit_id": 1,
+      "unit_name": "凱凱美麗產業有限公司",
+      "department": "總部",
+      "role": "employee",
+      "status": "active",
+      "account": "cc003",
+      "password_hash": "9c4417a3c483e744c8fce74d9d309840:93c52402cf7014b1ee3acecfbd90e79a5a1cabbeca987e7281d7f2a53d42287f",
+      "created_at": "2026-06-20T11:02:08.846Z",
+      "updated_at": "2026-06-20T16:28:55.413Z"
+    },
+    {
+      "id": 6,
+      "employee_no": "004",
+      "name": "黃家晟",
+      "unit_ids": [
+        1,
+        3
+      ],
+      "unit_names": [
+        "凱凱美麗產業有限公司",
+        "鋼鐵人美食家集團"
+      ],
+      "unit_id": 1,
+      "unit_name": "凱凱美麗產業有限公司",
+      "department": "總部",
+      "role": "employee",
+      "status": "active",
+      "account": "cc004",
+      "password_hash": "76a1e56a7c00298b6af0739490a1cfc9:f11aa42376b0992cee0fc25cf5d6933e7a4e7db6291e6ab2cf48a0251dc564b4",
+      "created_at": "2026-06-20T16:28:42.609Z",
+      "updated_at": "2026-06-20T16:28:42.609Z"
+    },
+    {
+      "id": 7,
+      "employee_no": "005",
+      "name": "陳騰煬",
+      "unit_ids": [
+        1,
+        2,
+        3
+      ],
+      "unit_names": [
+        "凱凱美麗產業有限公司",
+        "亞太職業創新協會",
+        "鋼鐵人美食家集團"
+      ],
+      "unit_id": 1,
+      "unit_name": "凱凱美麗產業有限公司",
+      "department": "總部",
+      "role": "employee",
+      "status": "active",
+      "account": "cc005",
+      "password_hash": "9e53fbf405b875d91ac6e4dc27be9282:343e70f4fe6d83ad83b1991f88d5dbda42acb9e554c7b6a9f6dae416e74c3e23",
+      "created_at": "2026-06-20T16:29:40.902Z",
+      "updated_at": "2026-06-20T16:29:40.902Z"
+    },
+    {
+      "id": 8,
+      "employee_no": "006",
+      "name": "陳敏琴",
+      "unit_ids": [
+        1,
+        2,
+        3
+      ],
+      "unit_names": [
+        "凱凱美麗產業有限公司",
+        "亞太職業創新協會",
+        "鋼鐵人美食家集團"
+      ],
+      "unit_id": 1,
+      "unit_name": "凱凱美麗產業有限公司",
+      "department": "總部",
+      "role": "employee",
+      "status": "active",
+      "account": "cc006",
+      "password_hash": "a54725940e672b110706fc193bee549a:02e97b6b5652ea3aaf8ec2fa4211eafea269054008f4bde1a60e7be983601e0a",
+      "created_at": "2026-06-20T16:30:06.784Z",
+      "updated_at": "2026-06-20T16:30:06.784Z"
+    }
+  ],
+  "requests": [
+    {
+      "id": 1,
+      "request_no": "EXP-20260620-0001",
+      "employee_id": 3,
+      "employee_no": "EMP002",
+      "employee_name": "陳怡君",
+      "unit_id": 3,
+      "unit_name": "鋼鐵人美食家集團",
+      "department": "行政部",
+      "expense_item": "6/20中餐",
+      "category_id": 2,
+      "category_name": "餐費",
+      "amount": 600,
+      "occurred_on": "2026-06-20",
+      "description": "測試",
+      "note": "",
+      "status": "pending",
+      "rejection_reason": "",
+      "approval_token": "qXQ31_cbKrB2gUaVHUDYRBH4j3_q_RI0i26JjdHLskg",
+      "line_delivery": {
+        "status": "skipped",
+        "message": "尚未設定 LINE_CHANNEL_ACCESS_TOKEN 或 LINE_TARGET_ID"
+      },
+      "created_by": "front",
+      "created_at": "2026-06-20T10:43:43.897Z",
+      "updated_at": "2026-06-20T10:43:43.908Z",
+      "approved_at": null,
+      "rejected_at": null,
+      "reviewed_by": "",
+      "invoice": null
+    },
+    {
+      "id": 2,
+      "request_no": "EXP-20260620-0002",
+      "employee_id": 1,
+      "employee_no": "001",
+      "employee_name": "艾瑞克",
+      "unit_id": 2,
+      "unit_name": "亞太職業創新協會",
+      "department": "管理部",
+      "expense_item": "6/20中餐",
+      "category_id": 2,
+      "category_name": "餐費",
+      "amount": 600,
+      "occurred_on": "2026-06-20",
+      "description": "午餐",
+      "note": "",
+      "status": "pending",
+      "rejection_reason": "",
+      "approval_token": "-bS2mg_ITeYykH3ICVpcLFR0VH5atLoS1SLmSnYqBaw",
+      "line_delivery": {
+        "status": "skipped",
+        "message": "尚未設定 LINE_CHANNEL_ACCESS_TOKEN 或 LINE_TARGET_ID"
+      },
+      "created_by": "front",
+      "created_at": "2026-06-20T10:58:35.356Z",
+      "updated_at": "2026-06-20T10:58:35.375Z",
+      "approved_at": null,
+      "rejected_at": null,
+      "reviewed_by": "",
+      "invoice": {
+        "filename": "EXP-20260620-0002-pEm5d1Hy.jpg",
+        "original_name": "餛飩炸DM-fix02.png",
+        "mime": "image/jpeg",
+        "size": 364371,
+        "uploaded_at": "2026-06-20T10:58:35.362Z"
+      }
+    },
+    {
+      "id": 3,
+      "request_no": "EXP-20260620-0003",
+      "employee_id": 4,
+      "employee_no": "002",
+      "employee_name": "Eric",
+      "unit_id": 1,
+      "unit_name": "凱凱美麗產業有限公司",
+      "department": "",
+      "expense_item": "餛飩炸貼紙印製",
+      "category_id": 3,
+      "category_name": "採購",
+      "amount": 250,
+      "occurred_on": "2026-06-20",
+      "description": "大陸印製",
+      "note": "",
+      "status": "pending",
+      "rejection_reason": "",
+      "approval_token": "dDGU0RQQBxsC6NL4SUPzPRt2XEHXnlmV1BlNatkbI-Q",
+      "line_delivery": {
+        "status": "skipped",
+        "message": "尚未設定 LINE_CHANNEL_ACCESS_TOKEN 或 LINE_TARGET_ID"
+      },
+      "created_by": "front",
+      "created_at": "2026-06-20T11:21:20.484Z",
+      "updated_at": "2026-06-20T11:21:20.550Z",
+      "approved_at": null,
+      "rejected_at": null,
+      "reviewed_by": "",
+      "invoice": {
+        "filename": "EXP-20260620-0003-E108jWCU.jpg",
+        "original_name": "餛飩炸DM-fix02.png",
+        "mime": "image/jpeg",
+        "size": 364371,
+        "uploaded_at": "2026-06-20T11:21:20.491Z"
+      }
+    }
+  ]
+}

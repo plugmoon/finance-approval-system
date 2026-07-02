@@ -17,11 +17,15 @@ const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : pat
 const DATA_FILE = path.join(DATA_DIR, 'store.json');
 const INVOICE_DIR = path.join(DATA_DIR, 'invoices');
 const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
+const APP_BASE_PATH = normalizeBasePath(process.env.APP_BASE_PATH || new URL(APP_BASE_URL).pathname);
+const COOKIE_PATH = APP_BASE_PATH || '/';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin12345';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-session-secret-change-me';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
 const LINE_TARGET_ID = process.env.LINE_TARGET_ID || '';
+const LINE_TARGET_IDS = parseLineTargetIds(process.env.LINE_TARGET_IDS || LINE_TARGET_ID);
+const LINE_QUOTA_WARNING_THRESHOLD = Number(process.env.LINE_QUOTA_WARNING_THRESHOLD || 20);
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 const MAX_BODY_BYTES = 1024 * 1024 * 8;
 
@@ -59,6 +63,44 @@ function loadEnvFile(filePath) {
     const value = rawValue.replace(/^['"]|['"]$/g, '');
     if (key && process.env[key] === undefined) process.env[key] = value;
   }
+}
+
+function normalizeBasePath(value) {
+  const text = String(value || '').trim().replace(/\/+$/, '');
+  if (!text || text === '/') return '';
+  return text.startsWith('/') ? text : `/${text}`;
+}
+
+function parseLineTargetIds(value) {
+  return Array.from(new Set(String(value || '')
+    .split(/[\s,，]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)));
+}
+
+function withBasePath(resourcePath) {
+  const normalized = String(resourcePath || '/');
+  const routePath = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  return `${APP_BASE_PATH}${routePath}`;
+}
+
+function stripBasePath(url) {
+  if (!APP_BASE_PATH) return;
+  if (url.pathname === APP_BASE_PATH) {
+    url.pathname = '/';
+    return;
+  }
+  if (url.pathname.startsWith(`${APP_BASE_PATH}/`)) {
+    url.pathname = url.pathname.slice(APP_BASE_PATH.length) || '/';
+  }
+}
+
+function injectBasePath(html) {
+  const script = `<script>window.APP_BASE_PATH=${JSON.stringify(APP_BASE_PATH)};</script>`;
+  return html
+    .replace('</head>', `  ${script}\n  </head>`)
+    .replace(/(href|src)="\/(css|js|api)\//g, `$1="${APP_BASE_PATH}/$2/`)
+    .replace(/href="\/admin"/g, `href="${withBasePath('/admin')}"`);
 }
 
 function nowIso() {
@@ -588,7 +630,7 @@ function normalizeNamedInput(body, existing = {}) {
 function invoiceUrl(expense) {
   if (!expense.invoice?.filename) return '';
   const file = encodeURIComponent(expense.invoice.filename);
-  return `/api/invoices/${file}?id=${encodeURIComponent(expense.id)}&token=${encodeURIComponent(expense.approval_token)}`;
+  return `${withBasePath(`/api/invoices/${file}`)}?id=${encodeURIComponent(expense.id)}&token=${encodeURIComponent(expense.approval_token)}`;
 }
 
 function safeInvoiceFilename(filename) {
@@ -648,12 +690,12 @@ function setSessionCookie(req, res, token) {
   const secure = isSecureRequest(req) ? '; Secure' : '';
   res.setHeader(
     'Set-Cookie',
-    `finance_admin_session=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_TTL_MS / 1000}${secure}`
+    `finance_admin_session=${encodeURIComponent(token)}; HttpOnly; Path=${COOKIE_PATH}; SameSite=Lax; Max-Age=${SESSION_TTL_MS / 1000}${secure}`
   );
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', 'finance_admin_session=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0');
+  res.setHeader('Set-Cookie', `finance_admin_session=; HttpOnly; Path=${COOKIE_PATH}; SameSite=Lax; Max-Age=0`);
 }
 
 function getAdminSession(req) {
@@ -815,7 +857,7 @@ function requestsToCsv(requests) {
 }
 
 function buildReviewUrl(expense, decision) {
-  const url = new URL('/review.html', APP_BASE_URL);
+  const url = new URL(withBasePath('/review.html'), APP_BASE_URL);
   url.searchParams.set('id', expense.id);
   url.searchParams.set('token', expense.approval_token);
   if (decision) url.searchParams.set('decision', decision);
@@ -858,7 +900,183 @@ async function postJson(urlString, payload, headers = {}) {
   });
 }
 
-async function pushLineMessages(messages) {
+async function lineApiGet(pathname) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN) throw new Error('LINE channel access token is missing.');
+  const url = new URL(pathname, 'https://api.line.me');
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+      }
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        const ok = res.statusCode >= 200 && res.statusCode < 300;
+        if (!ok) {
+          reject(new Error(`LINE API ${res.statusCode}: ${text.slice(0, 300)}`));
+          return;
+        }
+        try {
+          resolve(text ? JSON.parse(text) : {});
+        } catch {
+          resolve({ raw: text });
+        }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function lineTargetType(targetId) {
+  if (/^C[0-9a-f]{20,80}$/i.test(targetId)) return 'group';
+  if (/^R[0-9a-f]{20,80}$/i.test(targetId)) return 'room';
+  if (/^U[0-9a-f]{20,80}$/i.test(targetId)) return 'user';
+  return 'unknown';
+}
+
+function lineTargetTypeLabel(type) {
+  if (type === 'group') return '群組';
+  if (type === 'room') return '聊天室';
+  if (type === 'user') return '使用者';
+  return '未知對象';
+}
+
+async function getLineTargetEstimate(targetId) {
+  const type = lineTargetType(targetId);
+  const fallback = { target_id: targetId, type, recipient_count: type === 'user' ? 1 : null, estimated_cost: 1, error: '' };
+  const endpoint = type === 'group'
+    ? `/v2/bot/group/${encodeURIComponent(targetId)}/members/count`
+    : type === 'room'
+      ? `/v2/bot/room/${encodeURIComponent(targetId)}/members/count`
+      : '';
+  if (!endpoint) {
+    return {
+      ...fallback,
+      error: type === 'unknown' ? 'Unknown LINE target type, estimated as 1.' : ''
+    };
+  }
+  try {
+    const payload = await lineApiGet(endpoint);
+    const count = Number(payload.count);
+    if (!Number.isFinite(count) || count <= 0) {
+      return { ...fallback, error: 'LINE did not return a valid member count, estimated as 1.' };
+    }
+    return { target_id: targetId, type, recipient_count: count, estimated_cost: Math.max(1, count), error: '' };
+  } catch (error) {
+    return { ...fallback, error: `Could not get member count, estimated as 1. ${error.message}`.slice(0, 300) };
+  }
+}
+
+function lineTargetSummary(estimates) {
+  if (!Array.isArray(estimates) || !estimates.length) return '沒有設定推播對象';
+  const total = estimates.reduce((sum, item) => sum + (Number(item.recipient_count) || Number(item.estimated_cost) || 1), 0);
+  const parts = estimates.map((item) => {
+    const count = Number(item.recipient_count);
+    const countText = Number.isFinite(count) ? `${count}人` : '約1次';
+    return `${lineTargetTypeLabel(item.type)}${countText}`;
+  });
+  return `${parts.join('、')}，合計預估 ${total} 次`;
+}
+
+async function getLineQuotaStatus(messageCount = 1) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_TARGET_IDS.length) {
+    return { available: false, reason: 'LINE settings are missing.', estimated_cost: 0, target_estimates: [] };
+  }
+  const pushMessageCount = Math.max(1, Number(messageCount) || 1);
+  const targetEstimates = await Promise.all(LINE_TARGET_IDS.map(getLineTargetEstimate));
+  const estimatedRecipients = targetEstimates.reduce((sum, item) => sum + (Number(item.estimated_cost) || 1), 0);
+  const estimatedCost = Math.max(1, estimatedRecipients * pushMessageCount);
+  try {
+    const [quota, consumption] = await Promise.all([
+      lineApiGet('/v2/bot/message/quota'),
+      lineApiGet('/v2/bot/message/quota/consumption')
+    ]);
+    const usage = Number(consumption.totalUsage) || 0;
+    const type = String(quota.type || 'none');
+    const checkedAt = nowIso();
+    if (type === 'unlimited') {
+      return { available: true, type, unlimited: true, usage, checked_at: checkedAt, message_count: pushMessageCount, estimated_cost: estimatedCost, target_estimates: targetEstimates };
+    }
+    if (type !== 'limited') {
+      return { available: true, type, unlimited_or_unset: true, usage, checked_at: checkedAt, message_count: pushMessageCount, estimated_cost: estimatedCost, target_estimates: targetEstimates };
+    }
+    const limit = Number(quota.value);
+    if (!Number.isFinite(limit)) throw new Error('LINE quota limit is not a number.');
+    const remainingBeforePush = Math.max(0, limit - usage);
+    const estimatedRemainingAfterPush = Math.max(0, remainingBeforePush - estimatedCost);
+    return {
+      available: true,
+      type,
+      limit,
+      usage,
+      remaining_before_push: remainingBeforePush,
+      estimated_remaining_after_push: estimatedRemainingAfterPush,
+      message_count: pushMessageCount,
+      estimated_cost: estimatedCost,
+      warning: estimatedRemainingAfterPush <= LINE_QUOTA_WARNING_THRESHOLD,
+      checked_at: checkedAt,
+      target_estimates: targetEstimates
+    };
+  } catch (error) {
+    return {
+      available: false,
+      reason: error.message,
+      message_count: pushMessageCount,
+      estimated_cost: estimatedCost,
+      checked_at: nowIso(),
+      target_estimates: targetEstimates
+    };
+  }
+}
+
+function lineQuotaReminderText(quotaStatus) {
+  if (!quotaStatus?.available) {
+    const reason = quotaStatus?.reason ? `（${quotaStatus.reason}）` : '';
+    return `LINE 剩餘可發送次數：無法取得${reason}\n本次推播預估扣量：約 ${quotaStatus?.estimated_cost || 1} 次（${lineTargetSummary(quotaStatus?.target_estimates)}）`;
+  }
+  if (quotaStatus.unlimited) {
+    return `LINE 剩餘可發送次數：無限制\n本次推播預估扣量：約 ${quotaStatus.estimated_cost} 次（${lineTargetSummary(quotaStatus.target_estimates)}）\n目前已發送約 ${quotaStatus.usage || 0} 次`;
+  }
+  if (quotaStatus.unlimited_or_unset) {
+    return `LINE 剩餘可發送次數：未設定本月上限\n本次推播預估扣量：約 ${quotaStatus.estimated_cost} 次（${lineTargetSummary(quotaStatus.target_estimates)}）\n目前已發送約 ${quotaStatus.usage || 0} 次`;
+  }
+  return [
+    `LINE 剩餘可發送次數：本次通知前約 ${quotaStatus.remaining_before_push} 次`,
+    `本次推播預估扣量：約 ${quotaStatus.estimated_cost} 次（${lineTargetSummary(quotaStatus.target_estimates)}）`,
+    `送出後預估剩餘：約 ${quotaStatus.estimated_remaining_after_push} 次`,
+    `本月上限 ${quotaStatus.limit} 次，目前已用 ${quotaStatus.usage} 次`
+  ].join('\n');
+}
+
+function withLineQuotaReminder(messages, quotaStatus) {
+  const reminder = lineQuotaReminderText(quotaStatus);
+  return JSON.parse(JSON.stringify(messages)).map((message) => {
+    if (message.type === 'text') {
+      return { ...message, text: `${String(message.text || '').slice(0, 4500)}\n\n${reminder}`.slice(0, 5000) };
+    }
+    if (message.type === 'flex' && message.contents?.body?.contents) {
+      message.altText = `${String(message.altText || 'LINE 通知').slice(0, 300)} / ${reminder.replace(/\n/g, ' / ')}`.slice(0, 400);
+      message.contents.body.contents.push(
+        { type: 'separator', margin: 'md' },
+        {
+          type: 'text',
+          text: reminder,
+          wrap: true,
+          size: 'xs',
+          color: quotaStatus?.warning ? '#b42318' : '#5b6472',
+          margin: 'md'
+        }
+      );
+    }
+    return message;
+  });
+}
+
+async function pushLineMessagesLegacy(messages) {
   if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_TARGET_ID) {
     return { status: 'skipped', message: '尚未設定 LINE_CHANNEL_ACCESS_TOKEN 或 LINE_TARGET_ID' };
   }
@@ -874,6 +1092,53 @@ async function pushLineMessages(messages) {
   } catch (error) {
     return { status: 'failed', message: error.message };
   }
+}
+
+async function pushLineMessages(messages) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN || !LINE_TARGET_IDS.length) {
+    return { status: 'skipped', message: 'LINE settings are missing.' };
+  }
+
+  const quota_status = await getLineQuotaStatus(messages.length);
+  if (
+    quota_status?.available &&
+    !quota_status.unlimited &&
+    !quota_status.unlimited_or_unset &&
+    Number.isFinite(quota_status.remaining_before_push) &&
+    quota_status.remaining_before_push < quota_status.estimated_cost
+  ) {
+    return {
+      status: 'failed',
+      message: `LINE quota is insufficient. Remaining ${quota_status.remaining_before_push}, estimated cost ${quota_status.estimated_cost}.`,
+      results: LINE_TARGET_IDS.map((targetId) => ({
+        target_id: targetId,
+        status: 'skipped',
+        message: 'LINE quota is insufficient before push.'
+      })),
+      quota_status
+    };
+  }
+  const outboundMessages = withLineQuotaReminder(messages, quota_status);
+  const results = [];
+  for (const targetId of LINE_TARGET_IDS) {
+    try {
+      await postJson('https://api.line.me/v2/bot/message/push', {
+        to: targetId,
+        messages: outboundMessages
+      }, {
+        Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+      });
+      results.push({ target_id: targetId, status: 'sent' });
+    } catch (error) {
+      results.push({ target_id: targetId, status: 'failed', message: error.message });
+    }
+  }
+
+  const sent = results.filter((item) => item.status === 'sent').length;
+  const failed = results.filter((item) => item.status === 'failed');
+  if (sent && !failed.length) return { status: 'sent', message: `LINE sent to ${sent} target(s).`, results, quota_status };
+  if (sent) return { status: 'partial', message: `LINE sent to ${sent} target(s), failed for ${failed.length}.`, results, quota_status };
+  return { status: 'failed', message: failed.map((item) => item.message).join('; ') || 'LINE push failed.', results, quota_status };
 }
 
 async function sendLineReviewMessage(expense) {
@@ -1423,7 +1688,8 @@ async function serveStatic(req, res, url) {
     const stat = await fs.stat(filePath);
     if (!stat.isFile()) return notFound(res);
     const ext = path.extname(filePath).toLowerCase();
-    const data = await fs.readFile(filePath);
+    let data = await fs.readFile(filePath);
+    if (ext === '.html') data = Buffer.from(injectBasePath(data.toString('utf8')));
     res.writeHead(200, {
       'Content-Type': contentTypes[ext] || 'application/octet-stream',
       'Cache-Control': ['.html', '.css', '.js'].includes(ext) ? 'no-store' : 'public, max-age=3600'
@@ -1438,6 +1704,7 @@ async function serveStatic(req, res, url) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    stripBasePath(url);
     const handled = await handleApi(req, res, url);
     if (handled) return;
     await serveStatic(req, res, url);

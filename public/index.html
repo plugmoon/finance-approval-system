@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>凱凱/亞太/鋼鐵人 三合一財務審核系統</title>
     <link rel="stylesheet" href="/css/styles.css?v=20260620-employee-login">
-    <script defer src="/js/app.js?v=20260620-employee-login"></script>
+    <script defer src="/js/app.js?v=20260622-invoice-mode-picker"></script>
   </head>
   <body>
     <header class="topbar">
@@ -75,11 +75,26 @@
             <textarea name="note" rows="3" maxlength="1500" placeholder="可填發票號碼、付款方式或其他補充"></textarea>
           </label>
 
-          <label class="wide">
-            <span>發票照片</span>
-            <input name="invoice_file" id="invoiceInput" type="file" accept="image/*" capture="environment">
-          </label>
-          <div class="invoice-preview wide" id="invoicePreview">可直接拍照或從相簿選擇發票照片。</div>
+          <div class="invoice-mode-field wide">
+            <span class="field-label">發票照片</span>
+            <div class="invoice-mode-actions" role="group" aria-label="發票照片來源">
+              <button class="invoice-mode-button" type="button" data-invoice-mode="camera">拍攝照片</button>
+              <button class="invoice-mode-button" type="button" data-invoice-mode="upload">上傳發票</button>
+            </div>
+            <div class="invoice-source-panel" id="invoiceCameraPanel" hidden>
+              <label>
+                <span>開啟相機拍攝發票</span>
+                <input id="invoiceCameraInput" type="file" accept="image/*" capture="environment">
+              </label>
+            </div>
+            <div class="invoice-source-panel" id="invoiceUploadPanel" hidden>
+              <label>
+                <span>從手機相簿選擇發票照片</span>
+                <input name="invoice_file" id="invoiceInput" type="file">
+              </label>
+            </div>
+          </div>
+          <div class="invoice-preview wide" id="invoicePreview">請先選擇拍攝照片或上傳發票。</div>
 
           <div class="form-actions wide">
             <button class="primary-button" type="submit" id="submitButton">送出申請</button>

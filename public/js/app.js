@@ -2,6 +2,7 @@
   const state = {
     categories: [],
     employees: [],
+    invoiceMode: '',
     unitsById: new Map()
   };
 
@@ -29,8 +30,13 @@
     }).format(Number(value) || 0);
   }
 
+  function appPath(path) {
+    const base = window.APP_BASE_PATH || '';
+    return String(path).startsWith('/') ? `${base}${path}` : path;
+  }
+
   async function api(path, options = {}) {
-    const response = await fetch(path, {
+    const response = await fetch(appPath(path), {
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
@@ -108,10 +114,38 @@
     renderEmployeeContext();
   }
 
+  function renderInvoiceMode() {
+    elements.invoiceCameraPanel.hidden = state.invoiceMode !== 'camera';
+    elements.invoiceUploadPanel.hidden = state.invoiceMode !== 'upload';
+    elements.invoiceModeButtons.forEach((button) => {
+      const active = button.dataset.invoiceMode === state.invoiceMode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    renderInvoicePreview();
+  }
+
+  function setInvoiceMode(mode) {
+    state.invoiceMode = mode;
+    elements.invoiceInput.value = '';
+    elements.invoiceCameraInput.value = '';
+    renderInvoiceMode();
+  }
+
+  function selectedInvoiceFile() {
+    return elements.invoiceInput.files[0] || elements.invoiceCameraInput.files[0] || null;
+  }
+
   function renderInvoicePreview() {
-    const file = elements.invoiceInput.files[0];
+    const file = selectedInvoiceFile();
     if (!file) {
-      elements.invoicePreview.textContent = '可直接拍照或從相簿選擇發票照片。';
+      if (state.invoiceMode === 'camera') {
+        elements.invoicePreview.textContent = '請點選上方欄位開啟相機拍攝發票。';
+      } else if (state.invoiceMode === 'upload') {
+        elements.invoicePreview.textContent = '請點選上方欄位，從手機相簿選擇發票照片。';
+      } else {
+        elements.invoicePreview.textContent = '請先選擇拍攝照片或上傳發票。';
+      }
       return;
     }
     const sizeKb = Math.round(file.size / 1024);
@@ -207,8 +241,14 @@
     data.amount = Number(data.amount);
     return {
       ...data,
-      ...(await compressInvoice(elements.invoiceInput.files[0]))
+      ...(await compressInvoice(selectedInvoiceFile()))
     };
+  }
+
+  function handleInvoiceInputChange(changedInput) {
+    const otherInput = changedInput === elements.invoiceInput ? elements.invoiceCameraInput : elements.invoiceInput;
+    if (changedInput.files.length && otherInput) otherInput.value = '';
+    renderInvoicePreview();
   }
 
   async function submitExpense(event) {
@@ -231,9 +271,10 @@
       });
       elements.submitResult.innerHTML = resultHtml(data.request, data.line_delivery);
       elements.expenseForm.reset();
+      state.invoiceMode = '';
       elements.occurredOn.value = today();
       renderEmployeeContext();
-      renderInvoicePreview();
+      renderInvoiceMode();
       setState('已送出');
     } catch (error) {
       elements.submitResult.innerHTML = `<div class="empty-state">送出失敗：${escapeHtml(error.message)}</div>`;
@@ -254,16 +295,31 @@
       'categorySelect',
       'occurredOn',
       'invoiceInput',
+      'invoiceCameraInput',
+      'invoiceCameraPanel',
+      'invoiceUploadPanel',
       'invoicePreview',
       'submitButton',
       'submitResult'
     ].forEach((id) => {
       elements[id] = byId(id);
     });
+    elements.invoiceModeButtons = Array.from(document.querySelectorAll('[data-invoice-mode]'));
 
     elements.expenseForm.addEventListener('submit', submitExpense);
+    elements.expenseForm.addEventListener('reset', () => {
+      window.setTimeout(() => {
+        state.invoiceMode = '';
+        renderInvoiceMode();
+      }, 0);
+    });
     elements.employeeSelect.addEventListener('change', renderEmployeeContext);
-    elements.invoiceInput.addEventListener('change', renderInvoicePreview);
+    elements.invoiceModeButtons.forEach((button) => {
+      button.addEventListener('click', () => setInvoiceMode(button.dataset.invoiceMode));
+    });
+    elements.invoiceInput.addEventListener('change', () => handleInvoiceInputChange(elements.invoiceInput));
+    elements.invoiceCameraInput.addEventListener('change', () => handleInvoiceInputChange(elements.invoiceCameraInput));
+    renderInvoiceMode();
     loadBootstrap();
   });
 }());

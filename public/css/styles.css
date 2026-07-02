@@ -266,6 +266,46 @@ textarea:focus {
   grid-column: 1 / -1;
 }
 
+.invoice-mode-field {
+  display: grid;
+  gap: 12px;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.invoice-mode-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.invoice-mode-button {
+  min-height: 48px;
+  border: 1px solid #cfd8d1;
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.invoice-mode-button.active {
+  border-color: var(--primary);
+  background: #e7f3f1;
+  color: var(--primary-dark);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+.invoice-source-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
 .form-actions,
 .review-actions,
 .admin-tools {
@@ -682,6 +722,7 @@ tbody tr:last-child td {
 
   .request-form,
   .admin-form,
+  .invoice-mode-actions,
   .inline-form,
   .metric-grid,
   .detail-grid {
